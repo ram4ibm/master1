@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Template
 metadata:
-  name: ${NAME}-template
+  name: turing-template
   annotations:
     description: "Template to deploy all resources required to build and deploy Turing on OpenShift"
     iconClass: "icon-spring"
     tags: "turing,java,watson,mongo"
 labels:
-  template: "${NAME}-template"
+  template: "turing-template"
 objects:
 ## Mongo
 # Mongo PersistentVolumeClaim
@@ -17,7 +17,7 @@ objects:
     creationTimestamp: null
     labels:
       io.kompose.service: mongo-claim0
-    name: ${DATABASE_SERVICE_NAME}-claim0
+    name: turingmongodb-claim0
   spec:
     accessModes:
     - ReadWriteOnce
@@ -25,15 +25,14 @@ objects:
       requests:
         storage: 100Mi
   status: {}
-##
-# Mongo ImageStream
+### Mongo ImageStream
 - apiVersion: v1
   kind: ImageStream
   metadata:
     creationTimestamp: null
     labels:
-      io.kompose.service: ${DATABASE_SERVICE_NAME}
-    name: ${DATABASE_SERVICE_NAME}
+      io.kompose.service: turingmongodb
+    name: turingmongodb
   spec:
     tags:
     - annotations: null
@@ -49,8 +48,8 @@ objects:
   metadata:
     creationTimestamp: null
     labels:
-      io.kompose.service: ${DATABASE_SERVICE_NAME}
-    name: ${DATABASE_SERVICE_NAME}
+      io.kompose.service: turingmongodb
+    name: turingmongodb
   spec:
     clusterIP: None
     ports:
@@ -68,7 +67,7 @@ objects:
     creationTimestamp: null
     labels:
       io.kompose.service: mongo
-    name: ${DATABASE_SERVICE_NAME}
+    name: turingmongodb
   spec:
     replicas: 1
     selector:
@@ -88,12 +87,12 @@ objects:
           resources: {}
           volumeMounts:
           - mountPath: /data/db
-            name: ${DATABASE_SERVICE_NAME}-claim0
+            name: turingmongodb-claim0
         restartPolicy: Always
         volumes:
-        - name: {DATABASE_SERVICE_NAME}-claim0
+        - name: turingmongodb-claim0
           persistentVolumeClaim:
-            claimName: {DATABASE_SERVICE_NAME}-claim0
+            claimName: turingmongodb-claim0
     test: false
     triggers:
     - type: ConfigChange
@@ -103,7 +102,7 @@ objects:
         - {DATABASE_SERVICE_NAME}
         from:
           kind: ImageStreamTag
-          name: {DATABASE_SERVICE_NAME}:latest
+          name: turingmongodb:latest
       type: ImageChange
   status: {}
 
@@ -112,13 +111,13 @@ objects:
 - apiVersion: v1
   kind: BuildConfig
   metadata:
-    name: ${NAME}
+    name: turing
   spec:
     nodeSelector: null
     output:
       to:
         kind: ImageStreamTag
-        name: ${NAME}:latest
+        name: turing:latest
     postCommit: {}
     resources: {}
     runPolicy: Serial
@@ -130,18 +129,16 @@ objects:
     strategy:
       dockerStrategy: {}
       type: Docker
-    - type: ConfigChange
-    - type: ImageChange
     triggers:
   status: {}
-# Turing PersistentVolumeClaim
+### Turing PersistentVolumeClaim
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
     creationTimestamp: null
     labels:
       io.kompose.service: turing-claim0
-    name: ${NAME}-claim0
+    name: turing-claim0
   spec:
     accessModes:
     - ReadWriteOnce
@@ -149,27 +146,27 @@ objects:
       requests:
         storage: 100Mi
   status: {}
-# Turing ImageStream
+### Turing ImageStream
 - apiVersion: v1
   kind: ImageStream
   metadata:
     creationTimestamp: null
     labels:
       io.kompose.service: turing
-    name: ${NAME}
+    name: turing
   spec: {}
   status:
     dockerImageRepository: ""
-# Turing service
+### Turing service
 - apiVersion: v1
   kind: Service
   metadata:
     creationTimestamp: null
     labels:
       io.kompose.service: turing
-    name: ${NAME}
+    name: turing
     annotations:
-        "service.alpha.openshift.io/dependencies": "[{\"name\": \"{DATABASE_SERVICE_NAME}\", \"kind\": \"Service\"}]"
+        "service.alpha.openshift.io/dependencies": "[{\"name\": \"{turingmongodb}\", \"kind\": \"Service\"}]"
   spec:
     ports:
     - name: "8080"
@@ -179,14 +176,14 @@ objects:
       io.kompose.service: turing
   status:
     loadBalancer: {}
-# Turing DeploymentConfig
+### Turing DeploymentConfig
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
     creationTimestamp: null
     labels:
       io.kompose.service: turing
-    name: ${NAME}
+    name: turing
   spec:
     replicas: 1
     selector:
@@ -201,7 +198,7 @@ objects:
           io.kompose.service: turing
       spec:
         containers: |-
-        - env:
+          - env:
           - name: AWS_S3_SECRETKEY
             value: ${AWS_S3_SECRETKEY}
           - name: GOOGLE_OAUTH_CLIENTID
@@ -221,18 +218,18 @@ objects:
           - name: WATSON_PASSWORD
             value: ${WATSON_PASSWORD}
           image: ' '
-          name: ${NAME}
+          name: turing
           ports:
           - containerPort: 8080
           resources: {}
           volumeMounts:
           - mountPath: /logs
-            name: ${NAME}-claim0
+            name: turing-claim0
         restartPolicy: Always
         volumes:
-        - name: ${NAME}-claim0
+        - name: turing-claim0
           persistentVolumeClaim:
-            claimName: ${NAME}-claim0
+            claimName: turing-claim0
     test: false
     triggers:
     - type: ConfigChange
@@ -245,7 +242,7 @@ objects:
           name: turing:latest
       type: ImageChange
   status: {}
-# Turing Template Parameters
+### Turing Template Parameters
 parameters:
 - name: NAME
   displayName: Name
@@ -302,5 +299,6 @@ parameters:
   description: Name of the S3 Bucket used to store pictures within Turing
   value: ee-santander-insta-bot
   required: false
-# Message to show when template processed
+### Message to show when template processed
+message: "Turing has been successfully deployed."
 message: "Turing has been successfully deployed."
